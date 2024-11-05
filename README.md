@@ -20,6 +20,7 @@ git clone https://github.com/liviaportela/api-jwt-docker-messaging.git
 ```
 
 2. **Run the project with Docker**
+
 Use Docker Compose to upload your application containers:
 ```bash
 docker-compose up -d
