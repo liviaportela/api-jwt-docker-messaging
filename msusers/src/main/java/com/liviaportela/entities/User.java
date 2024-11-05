@@ -1,6 +1,7 @@
 package com.liviaportela.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import lombok.*;
 
 import java.io.Serializable;
@@ -25,6 +26,7 @@ public class User implements Serializable {
     @Column(nullable = false)
     private String password;
 
+    @Email(message = "email format is invalid", regexp = "^[a-z0-9.+-]+@[a-z0-9.-]+\\.[a-z]{2,}$")
     @Column(nullable = false, unique = true)
     private String email;
 

@@ -64,7 +64,7 @@ public class UserController {
                         content = @Content(mediaType = "application/json", schema = @Schema(implementation = ExceptionResponse.class)))
             })
     @PostMapping(value = "/register")
-    public ResponseEntity<UserResponseDto> create(@RequestBody UserCreateDto dto) {
+    public ResponseEntity<UserResponseDto> create(@RequestBody @Valid UserCreateDto dto) {
         User newUser = userService.createUser(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(UserMapper.toDto(newUser));
     }

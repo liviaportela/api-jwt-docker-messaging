@@ -2,10 +2,7 @@ package com.liviaportela.services;
 
 import com.liviaportela.entities.Address;
 import com.liviaportela.entities.User;
-import com.liviaportela.exceptions.InvalidCepException;
-import com.liviaportela.exceptions.NotFoundException;
-import com.liviaportela.exceptions.PasswordDoesNotMatchException;
-import com.liviaportela.exceptions.UserAlreadyRegisteredException;
+import com.liviaportela.exceptions.*;
 import com.liviaportela.feign.AddressFeign;
 import com.liviaportela.repositories.UserRepository;
 import com.liviaportela.security.UserDetailsImpl;
@@ -14,10 +11,10 @@ import com.liviaportela.web.dto.UpdatePasswordDto;
 import com.liviaportela.web.dto.UserCreateDto;
 import com.liviaportela.web.dto.mapper.UserMapper;
 import feign.FeignException;
-import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -37,6 +34,8 @@ public class UserService implements UserDetailsService {
     @Transactional
     public User createUser(UserCreateDto dto) {
         try {
+            if (repository.findByUsername(dto.getUsername())
+                    .isPresent()) throw new UserAlreadyRegisteredException("This user already exists.");
             dto.setPassword(passwordEncoder.encode(dto.getPassword()));
             User newUser = UserMapper.toUser(dto);
             newUser.setAddress(getAddressByCep(dto.getCep()));
@@ -44,8 +43,6 @@ public class UserService implements UserDetailsService {
             System.out.println("Message sent: " + message);
             kafkaTemplate.send("notify", message);
             return repository.save(newUser);
-        } catch (DataIntegrityViolationException | ConstraintViolationException e) {
-            throw new UserAlreadyRegisteredException("This user already exists.");
         } catch (FeignException.BadRequest e) {
             throw new InvalidCepException("Invalid CEP provided.");
         }
@@ -53,8 +50,13 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public void updateUserPassword(UpdatePasswordDto dto) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String authenticatedUsername = authentication.getName();
         User existentUser = repository.findByUsername(dto.getUsername())
                 .orElseThrow((() -> new NotFoundException("User not found with username: " + dto.getUsername())));
+        if (!authenticatedUsername.equals(existentUser.getEmail())) {
+            throw new UnauthorizedException("You are not authorized to change another user's password.");
+        }
         if (passwordEncoder.matches(dto.getOldPassword(), existentUser.getPassword())) {
             existentUser.setPassword(passwordEncoder.encode(dto.getNewPassword()));
             String message = String.format("%s, UPDATE", dto.getUsername());
